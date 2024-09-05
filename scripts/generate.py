@@ -86,11 +86,12 @@ def categorize_resources_by_labels(schema):
     Categorizes GCP resources into those that support labels and those that do not.
     """
     resources_with_labels = []
+    resources_without_labels = []
     gcp_provider = schema.get("provider_schemas", {}).get("registry.terraform.io/hashicorp/google", {})
 
     if not gcp_provider:
         print("GCP provider schema not found in the fetched schema.")
-        return resources_with_labels
+        return resources_with_labels, resources_without_labels
 
     resources = gcp_provider.get("resource_schemas", {})
 
@@ -99,8 +100,10 @@ def categorize_resources_by_labels(schema):
         attributes = block.get("attributes", {})
         if "labels" in attributes:
             resources_with_labels.append(resource_name)
+        else:
+            resources_without_labels.append(resource_name)
 
-    return resources_with_labels
+    return resources_with_labels, resources_without_labels
 
 def write_json_file(filename, data):
     """
@@ -155,13 +158,13 @@ def main():
     if not schema:
         return
 
-    resource_types = categorize_resources_by_labels(schema)
+    resources_with_labels, resources_without_labels = categorize_resources_by_labels(schema)
 
     if args.generate_json:
-        write_json_file('resources_with_labels.json', resource_types)
-        write_json_file('resources_without_labels.json', [])  # Assuming no resources without labels
+        write_json_file('resources_with_labels.json', resources_with_labels)
+        write_json_file('resources_without_labels.json', resources_without_labels)
     else:
-        write_rego_file(resource_types)
+        write_rego_file(resources_with_labels)
 
     cleanup()  # Clean up after processing
 
