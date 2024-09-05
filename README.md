@@ -1,11 +1,10 @@
 # Dynamic Rego Policy for GCP Terraform Resources
-## Overview
 
 This repository provides tools and scripts to dynamically generate Rego policies for TFLint that enforce label requirements on Google Cloud Platform (GCP) resources defined in Terraform configurations. The scripts categorize GCP resources based on their support for labels and generate corresponding Rego policies to validate label adherence.
 
 ## Folder Structure
 
-Here is an overview of the folder structure:
+Below is an overview of the folder structure:
 
 ```
 .
@@ -30,58 +29,95 @@ Here is an overview of the folder structure:
 - `scripts/`: Directory containing the Python script (`generate.py`) used to generate the `resources.rego` file.
 - `.tflint.hcl`: Configuration file for TFLint.
 
+## What is TFLint and Why is it Used?
+
+[TFLint](https://github.com/terraform-linters/tflint) is a powerful linting tool designed for Terraform configurations. It checks Terraform code for potential issues, enforces best practices, and ensures that configurations are optimized for the cloud provider in use.
+
+### Why TFLint is Important:
+
+1. **Error Prevention**: Catches errors early, such as deprecated syntax, missing required fields, or improper resource configurations.
+2. **Best Practices**: Enforces best practices for each cloud provider to avoid misconfigurations and unnecessary complexity.
+3. **Policy Enforcement**: With its plugin architecture, TFLint allows custom policies using OPA Rego, enabling users to enforce specific organizational policies.
+
+### Why Use TFLint for GCP?
+
+AWS and Azure have built-in TFLint rulesets that check for missing tags and enforce tagging policies by default. However, GCP lacks built-in rules for enforcing label requirements in Terraform configurations, leaving GCP resources often unlabelled, which complicates billing, tracking, and compliance.
+
+To address this gap, this repository provides custom policies using OPA Rego to ensure:
+
+- **Custom Validation**: Mandatory labels such as `Environment` and `Owner` are enforced on all GCP resources that support labels.
+- **Flexibility**: Dynamically generated policies can be adjusted based on your specific Terraform configurations and requirements.
+
 ## TFLint OPA Rego Policies
 
-### 🏷️ tags.rego
+### What is TFLint OPA Ruleset?
+
+[TFLint OPA Ruleset](https://github.com/terraform-linters/tflint-ruleset-opa) is a plugin that allows integration of [Open Policy Agent (OPA)](https://www.openpolicyagent.org/) Rego policies into TFLint. With this plugin, users can write custom validation rules using Rego, and TFLint will apply them during the Terraform code analysis.
+
+#### Key Features:
+- **Rego Policy Integration**: Allows writing custom rules for resource validation using Rego language.
+- **Flexibility**: Supports enforcement of custom policies, such as security best practices, label validation, and resource-specific requirements.
+- **Compatibility**: Can be used for any Terraform provider, including AWS, Azure, and GCP, by writing rules specific to that provider.
+
+The OPA plugin extends the default capabilities of TFLint, making it possible to add granular control over Terraform configurations based on user-defined rules.
+
+### 🏷️ `tags.rego`
 
 The `tags.rego` file includes Rego policies that enforce label requirements on GCP resources. The policies are:
 
 1. **Mandatory Labels** 🏷️
-     - Enforces the presence of the following labels:
-         - `Environment` 🌍
-         - `Owner` 👤
+    - Enforces the presence of the following labels:
+        - `Environment` 🌍
+        - `Owner` 👤
 
 2. **Supported Resource Types** ✅
-     - Applies to resource types that support labels, as defined in the dynamically generated `resources.rego` file.
+    - Applies to resource types that support labels, as defined in the dynamically generated `resources.rego` file.
 
 3. **Rules**
-     - **Missing or Empty Labels** ❌
-         - **Rule**: Resources must have at least one label.
-         - **Issue**: Reports if the `labels` field is missing or empty.
-     - **Missing Mandatory Labels** ❌
-         - **Rule**: Resources must include all mandatory labels (`Environment`, `Owner`).
-         - **Issue**: Reports if any mandatory labels are missing.
-     - **Unknown Labels** ❓
-         - **Rule**: Dynamic or unknown values are not allowed in labels.
-         - **Issue**: Reports if a label contains dynamic or unknown values.
+    - **Missing or Empty Labels** ❌
+        - **Rule**: Resources must have at least one label.
+        - **Issue**: Reports if the `labels` field is missing or empty.
+    - **Missing Mandatory Labels** ❌
+        - **Rule**: Resources must include all mandatory labels (`Environment`, `Owner`).
+        - **Issue**: Reports if any mandatory labels are missing.
+    - **Unknown Labels** ❓
+        - **Rule**: Dynamic or unknown values are not allowed in labels.
+        - **Issue**: Reports if a label contains dynamic or unknown values.
+
+### 🏷️ `resources.rego`
+
+This file is dynamically generated by the script and contains resource types that support labels. It is critical for defining the resource types that TFLint will enforce label rules on.
 
 ### Usage
 
 1. **Policy Files** 📜
-     - Place the `tags.rego` and the dynamically generated `resources.rego` file in the `.tflint.d/policies` directory.
+    - Place the `tags.rego` and dynamically generated `resources.rego` files in the `.tflint.d/policies` directory.
 
 2. **Configuration** ⚙️
-     - Ensure that the `resources` data file is correctly set up to reflect the supported resource types.
+    - Ensure that the `resources.rego` file correctly reflects the supported resource types, as this defines where the label policies will apply.
 
 3. **TFLint Configuration** ⚙️
-     - The `.tflint.hcl` file should include the following configuration to enable the OPA plugin:
-         ```hcl
-         plugin "opa" {
-             enabled = true
-             version = "0.7.0"
-             source  = "github.com/terraform-linters/tflint-ruleset-opa"
-         }
-         ```
+    - The `.tflint.hcl` file should include the following configuration to enable the OPA plugin:
+
+        ```hcl
+        plugin "opa" {
+            enabled = true
+            version = "0.7.0"
+            source  = "github.com/terraform-linters/tflint-ruleset-opa"
+        }
+        ```
 
 4. **Running TFLint** ▶️
-     - Validate Terraform configurations with TFLint and the Rego policies:
-         ```bash
-         tflint --config .tflint.hcl --recursive
-         ```
-     - TFLint will read the policies from the `.tflint.d/policies` directory and apply them to your Terraform configurations.
+    - Validate Terraform configurations with TFLint and the Rego policies:
+    
+        ```bash
+        tflint --config .tflint.hcl --recursive
+        ```
+    
+    - TFLint will read the policies from the `.tflint.d/policies` directory and apply them to your Terraform configurations.
 
 5. **Example** 🌟
-     - The policy will ensure GCP resources in Terraform configurations have mandatory labels and do not have unknown or empty labels. Issues will be reported with details.
+    - The policy will ensure GCP resources in Terraform configurations have mandatory labels and do not have unknown or empty labels. Issues will be reported with details.
 
 ## Terraform Resource Management Script
 
@@ -96,37 +132,37 @@ This script automates the generation of a dynamic `resources.rego` file based on
 ### Usage
 
 1. **Basic Usage** 🚀
-     - Ensure Terraform is installed and in your system's PATH.
-     - Run the script to generate the Rego policy and perform other operations:
-     - Navigate to scripts dir
-         ```bash
-         cd scripts
-         ```
-         and execute
-         ```bash
-         python3 generate.py
-         ```
-         This will:
-         - Clean up existing Terraform files and directories.
-         - Create a `provider.tf` file in the `terraform/` directory.
-         - Initialize Terraform.
-         - Fetch the GCP provider schema.
-         - Categorize resources based on label support.
-         - Generate the `resources.rego` file in the `.tflint.d/policies/` directory.
+    - Ensure Terraform is installed and in your system's PATH.
+    - Navigate to the `scripts` directory:
+    
+        ```bash
+        cd scripts
+        ```
+    
+    - Run the script to generate the Rego policy and perform other operations:
+    
+        ```bash
+        python3 generate.py
+        ```
+
+    - This will:
+        - Clean up existing Terraform files and directories.
+        - Create a `provider.tf` file.
+        - Initialize Terraform.
+        - Fetch the GCP provider schema.
+        - Categorize resources based on label support.
+        - Generate the `resources.rego` file in the `.tflint.d/policies/` directory.
 
 2. **Generating JSON Files** 📊
-     - To generate JSON files for resources with and without labels, use the `--generate-json` flag:
-     - Navigate to scripts dir
-         ```bash
-         cd scripts
-         ```
-         and execute
-         ```bash
-         python3 generate.py --generate-json
-         ```
-         This will create:
-         - `resources_with_labels.json`: List of GCP resources that support labels.
-         - `resources_without_labels.json`: List of GCP resources that do not support labels.
+    - To generate JSON files for resources with and without labels, use the `--generate-json` flag:
+
+        ```bash
+        python3 generate.py --generate-json
+        ```
+
+    - This will create:
+        - `resources_with_labels.json`: List of GCP resources that support labels.
+        - `resources_without_labels.json`: List of GCP resources that do not support labels.
 
 ### Script Overview
 
@@ -139,10 +175,7 @@ This script automates the generation of a dynamic `resources.rego` file based on
 - `write_rego_file(resource_types)`: Generates the `resources.rego` file with a list of resource types that support labels.
 - `main()`: Coordinates script execution based on command-line arguments.
 
----
-## Additional Information
-
-### Contributing
+## Contributing
 
 If you would like to contribute to this project, please follow these steps:
 
@@ -151,3 +184,5 @@ If you would like to contribute to this project, please follow these steps:
 3. Make your changes and commit them.
 4. Push your changes to your forked repository.
 5. Submit a pull request to the main repository.
+
+--- 

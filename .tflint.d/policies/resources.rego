@@ -1,4 +1,10 @@
-[
+# This file is generated from generate.py. Do not edit it directly.
+package resources
+
+import rego.v1
+
+# Define a list of resource types that support labels
+resource_types := [
   "google_active_directory_domain",
   "google_alloydb_backup",
   "google_alloydb_cluster",
