@@ -1,4 +1,3 @@
-# Resource definitions
 resource "google_compute_disk" "test_disk_with_labels" {
   name = "test-disk-with-labels"
   zone = "us-central1-a"
