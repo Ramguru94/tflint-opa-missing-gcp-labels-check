@@ -1,4 +1,3 @@
-# Resource definitions
 resource "google_compute_disk" "test_disk_with_labels" {
   name = "test-disk-with-labels"
   zone = "us-central1-a"
@@ -102,7 +101,7 @@ resource "google_pubsub_topic" "test_pubsub_topic_empty_labels" {
 resource "google_alloydb_user" "test_alloydb_user_missing_labels" {
   name      = "test-alloydb-user-missing-labels"
   user_id   = "your-user-id"
-  user_type = "your-user-type"
+  user_type = "ALLOYDB_BUILT_IN"
   cluster   = "your-cluster"
 }
 

@@ -4,56 +4,63 @@ import rego.v1
 
 import data.resources
 
-# Define mandatory labels. Modify this list as needed.
-mandatory_labels := {"Environment", "Owner"}
-
-# Define a list of resource types
 resource_types := resources.resource_types
 
-# Fetch resources for each type and combine them
 gcp_resources := [
-r |
-	some resource_type in resource_types
-	resources := terraform.resources(resource_type, {"labels": "map(string)"}, {"expand_mode": "none"})
-	some r in resources
+    r |
+    some resource_type in resource_types
+    resources := terraform.resources(resource_type, {"labels": "map(string)"}, {"expand_mode": "none"})
+    some r in resources
 ]
 
-# Check if labels field is missing or empty
-is_unlabeled(config) if {
-	not "labels" in object.keys(config)
+mandatory_labels := {"Environment", "Platform"}
+
+# Helper Functions
+is_untagged(config) if {
+    not "labels" in object.keys(config)  # Labels field is missing
 }
 
-is_unlabeled(config) if {
-	labels := config.labels
-	count(object.keys(labels)) == 0
+is_untagged(config) if {
+    "labels" in object.keys(config)
+    is_null(config.labels.value)  # Labels are null
 }
 
-# Check if mandatory labels are missing
-missing_mandatory_labels(config) if {
-	labels := config.labels
-	missing := mandatory_labels - object.keys(labels)
-	count(missing) > 0
+is_untagged(config) if {
+    "labels" in object.keys(config)
+    not is_null(config.labels.value)
+    count(object.keys(config.labels.value)) == 0  # Labels exist but are empty
 }
 
-# Rules for unknown labels (dynamic value)
-deny_unlabeled_resource contains issue if {
-	some r in gcp_resources
-	labels := r.config.labels
-	unknown_label := labels.unknown
-	unknown_label != null
-	issue := tflint.issue("Dynamic value is not allowed in labels", r.decl_range)
+missing_mandatory_labels(config) := missing if {
+    not is_null(config.labels.value)
+    labels := config.labels.value
+    missing := {label | label := mandatory_labels[_]; not label in object.keys(labels)}
+    count(missing) > 0
 }
 
-# Rules for missing or empty labels
-deny_missing_labels contains issue if {
-	some r in gcp_resources
-	is_unlabeled(r.config)
-	issue := tflint.issue("Resource must have at least one label", r.decl_range)
+concat_missing_labels(missing) = output if {
+    # Convert the set of missing labels into an array of strings
+    missing_array := [label | label := missing[_]]
+    output := concat(", ", missing_array)  # Join the array into a comma-separated string
 }
 
-# Rules for missing mandatory labels
+# Group: Label Checks
+# Rule for resources missing labels or with null labels
+deny_missing_labels_field contains issue if {
+    some r in gcp_resources
+    is_untagged(r.config)
+
+    issue := tflint.issue(`resource missing labels or set to null`, r.decl_range)
+}
+
+# Rule for resources missing mandatory labels
 deny_missing_mandatory_labels contains issue if {
-	some r in gcp_resources
-	missing_mandatory_labels(r.config)
-	issue := tflint.issue("Resource must include all mandatory labels: Environment, Owner", r.decl_range)
+    some r in gcp_resources
+    missing := missing_mandatory_labels(r.config)
+
+    # Use the helper function to join the missing labels into a comma-separated string
+    missing_tags := concat_missing_labels(missing)
+
+    # Create an issue with the list of missing mandatory labels
+    issue := tflint.issue(sprintf("resource missing required labels: %s", [missing_tags]), r.decl_range)
 }

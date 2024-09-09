@@ -123,7 +123,7 @@ def write_rego_file(resource_types):
     rego_dir = "../.tflint.d/policies"
     os.makedirs(rego_dir, exist_ok=True)  # Ensure the directory exists
 
-    rego_content = f"""# This file is generated from generate.py. Do not edit it directly.
+    rego_content = f"""# This file is generated from scripts/generate.py. Do not edit it directly.
 package resources
 
 import rego.v1
